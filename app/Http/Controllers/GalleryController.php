@@ -4,6 +4,26 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Post;
+use Exception;
+use Illuminate\Support\Facades\Http;
+use Intervention\Image\Facades\Image;
+use Illuminate\Support\Facades\Storage;
+
+/**
+* @OA\Info(
+*   description="Bisa Menambahkan gallery/postingan dan juga bisa menampilkannya",
+*   version="0.0.1",
+*   title="API Gallery Portfolio Fadhil (Get dan Post)",
+*   termsOfService="http://swagger.io/terms/",
+*   @OA\Contact(
+*       email="fadhillatmojo@gmail.com"
+*   ),
+*   @OA\License(
+*       name="Apache 2.0",
+*       url="http://www.apache.org/licenses/LICENSE-2.0.html"
+*   )
+* )
+*/
 
 class GalleryController extends Controller
 {
@@ -12,16 +32,22 @@ class GalleryController extends Controller
      */
     public function index()
     {
-       $data = array(
-           'id' => "posts",
-           'menu' => 'Gallery',
-           'galleries' => Post::where('picture', '!=', '')
-           ->whereNotNull('picture')->orderBy('created_at', 'desc')->paginate(30)
-       );
-       return view('gallery.index')->with($data);
+    //    $data = array(
+    //        'id' => "posts",
+    //        'menu' => 'Gallery',
+    //        'galleries' => Post::where('picture', '!=', '')
+    //        ->whereNotNull('picture')->orderBy('created_at', 'desc')->paginate(30)
+    //    );
+    //    return view('gallery.index')->with($data);
+    $response = Http::get('http://127.0.0.1:8000/api/gallery');
+        $objectResponse = $response->body();
+        $data = json_decode($objectResponse, true);
+        return view('gallery.index')->with([
+            'galleries' => $data['galleries']['data'],
+            'links' => $data['galleries']['links']
+        ]);
     }
    
-
     /**
      * Show the form for creating a new resource.
      */
@@ -35,29 +61,37 @@ class GalleryController extends Controller
      */
     public function store(Request $request)
     {
-       $this->validate($request, [
-           'title' => 'required|max:255',
-           'description' => 'required',
-           'picture' => 'image|nullable|max:1999'
-       ]);
+    //    $this->validate($request, [
+    //        'title' => 'required|max:255',
+    //        'description' => 'required',
+    //        'picture' => 'image|nullable|max:1999'
+    //    ]);
 
        try {
             if ($request->hasFile('picture')) {
-                $filenameWithExt = $request->file('picture')->getClientOriginalName();
-                $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
+                // $filenameWithExt = $request->file('picture')->getClientOriginalName();
+                // $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
                 $extension = $request->file('picture')->getClientOriginalExtension();
                 $basename = uniqid() . time();
-                $smallFilename  = "small_{$basename}.{$extension}";
-                $mediumFilename  = "medium_{$basename}.{$extension}";
-                $largeFilename  = "large_{$basename}.{$extension}";
+                // $smallFilename  = "small_{$basename}.{$extension}";
+                // $mediumFilename  = "medium_{$basename}.{$extension}";
+                // $largeFilename  = "large_{$basename}.{$extension}";
                 $filenameSimpan = "{$basename}.{$extension}";
                 $path = $request->file('picture')->storeAs('posts_image', $filenameSimpan);
-
-                // Tambahkan URL gambar ke data yang akan dikirimkan ke tampilan
-                $imageUrl = asset('storage/app/public/posts_image/' . $filenameSimpan);
-
             } else {
                 $filenameSimpan = 'noimage.png';
+            }
+
+            $response = Http::attach(
+                'picture', file_get_contents($request->picture), $filenameSimpan 
+            )->post('http://127.0.0.1:8000/api/gallery-store', [
+                'title' => $request->title,
+                'description' => $request->description,
+            ]);
+            
+            // ini dijalankan ketika responsenya itu success, maka dia akan mereturn success berhasil menambahkan data
+            if ($response->successful()) {
+                return redirect()->route('gallery.index')->with('Success', 'Berhasil menambahkan data baru');
             }
 
         } catch (\Throwable $th) {
@@ -65,12 +99,12 @@ class GalleryController extends Controller
         }
 
        // dd($request->input());
-       $post = new Post;
-       $post->picture = $filenameSimpan;
-       $post->title = $request->input('title');
-       $post->description = $request->input('description');
-       $post->save();
-       return redirect('gallery')->with('success', 'Berhasil menambahkan data baru')->with('imageUrl', $imageUrl);
+    //    $post = new Post;
+    //    $post->picture = $filenameSimpan;
+    //    $post->title = $request->input('title');
+    //    $post->description = $request->input('description');
+    //    $post->save();
+    //    return redirect('gallery')->with('success', 'Berhasil menambahkan data baru')->with('imageUrl', $imageUrl);
     }
    
 
@@ -87,7 +121,7 @@ class GalleryController extends Controller
      */
     public function edit(string $id)
     {
-        $gallery = Post::find($id);
+        $gallery = Post::findOrFail($id);
         return view('gallery.edit', compact('gallery'));
     }
 
@@ -96,47 +130,117 @@ class GalleryController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'title' => 'required|max:255',
-            'description' => 'required',
-            'picture' => 'image|nullable|max:1999'
-        ]);
+        // $request->validate([
+        //     'title' => 'required|max:255',
+        //     'description' => 'required',
+        //     'picture' => 'image|nullable|max:1999'
+        // ]);
 
-        $post = Post::find($id);
+        $post = Post::findOrFail($id);
 
-        if (!$post) {
-            return redirect()->route('gallery.index')->with('error', 'Post tidak ditemukan.');
-        }
+        // if (!$post) {
+        //     return redirect()->route('gallery.index')->with('error', 'Post tidak ditemukan.');
+        // }
 
-        $post->title = $request->input('title');
-        $post->description = $request->input('description');
+        // $post->title = $request->input('title');
+        // $post->description = $request->input('description');
 
         if ($request->hasFile('picture')) {
-            // Upload gambar baru jika ada berkas yang diunggah
-            $image = $request->file('picture');
-            $imageName = time() . '.' . $image->extension();
-            $image->storeAs('posts_image', $imageName);
+            // menghapus image lama
+            $path = 'posts_image/'. $post->picture;
 
+            if (Storage::exists($path)) {
+                Storage::delete($path);
+            }
+
+            $filenameWithExt = $request->file('picture')->getClientOriginalName();
+            $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
+            $extension = $request->file('picture')->getClientOriginalExtension();
+            $basename = uniqid() . time();
+            $smallFilename = "small_{$basename}.{$extension}";
+            $mediumFilename = "medium_{$basename}.{$extension}";
+            $largeFilename = "large_{$basename}.{$extension}";
+            $filenameSimpan = "{$basename}.{$extension}";
+            $path = $request->file('picture')->storeAs('posts_image', $filenameSimpan);
+
+            //update post with new image
+            $post->update([
+                'title'         => $request->title,
+                'description'   => $request->description,
+                'picture'       => $filenameSimpan
+            ]);
+        } else {
+            //update post with no image
+            $post->update([
+                'title'         => $request->title,
+                'description'   => $request->description
+            ]);
         }
-
-        $post->save();
-
-        return redirect()->route('gallery.index')->with('success', 'Post berhasil diperbarui.');
+        //redirect to dashboard
+        return redirect()->route('gallery.edit', $post->id)->with(['message' => 'Data Berhasil Diubah!']);
     }
+
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy(string $id)
     {
-        $gallery = Post::find($id); // Menggunakan model Post
+        $gallery = Post::findOrFail($id); // Menggunakan model Post
+        $path = 'posts_image/'. $gallery->picture;
 
-        if (!$gallery) {
-            return redirect()->route('gallery.index')->with('error', 'Gambar tidak ditemukan.');
+        if (Storage::exists($path)) {
+            Storage::delete($path);
         }
 
         $gallery->delete();
 
-        return redirect()->route('gallery.index')->with('success', 'Gambar berhasil dihapus.');
+        return redirect()->route('gallery.index')->with(['message' => 'Gambar berhasil dihapus!']);
+    }
+
+    public function gallery()
+    { 
+        try{
+            $posts = Post::where('picture', '!=', '')->whereNotNull('picture')->orderBy('created_at', 'desc')->paginate(30);
+            return response()->json([
+                'galleries' => $posts,
+                'success' => true
+            ], 200);
+        } catch(Exception $e){
+            return response()->json([
+                'message' => $e
+            ],404);
+        }
+    }
+
+    public function addGallery(Request $request){
+        try{
+            if ($request->hasFile('picture')) {
+                $extension = $request->file('picture')->getClientOriginalExtension();
+                $basename = uniqid() . time();
+                $filenameSimpan = "{$basename}.{$extension}";
+
+                $path = $request->file('picture')->storeAs('posts_image', $filenameSimpan);
+            } else {
+            $filenameSimpan = 'noimage.png';
+            }
+
+            Post::create([
+                'title' => $request->title,
+                'description' => $request->description,
+                'picture' => $filenameSimpan
+            ]);
+            return response()->json([
+                'title' => $request->title,
+                'description' => $request->description,
+                'picture' => $filenameSimpan,
+                'message' => 'Data Berhasil ditambahkan!',
+            ], 200);
+            
+        } catch(Exception $e){
+            return response()->json([
+                'message' => $e
+            ],404);
+        }
     }
 }
