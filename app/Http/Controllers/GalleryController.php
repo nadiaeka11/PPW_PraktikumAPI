@@ -13,10 +13,10 @@ use Illuminate\Support\Facades\Storage;
 * @OA\Info(
 *   description="Bisa Menambahkan gallery/postingan dan juga bisa menampilkannya",
 *   version="0.0.1",
-*   title="API Gallery Portfolio Fadhil (Get dan Post)",
+*   title="API Gallery Portfolio Nadia (Get dan Post)",
 *   termsOfService="http://swagger.io/terms/",
 *   @OA\Contact(
-*       email="fadhillatmojo@gmail.com"
+*       email="nadiaekafebrianti@gmail.com"
 *   ),
 *   @OA\License(
 *       name="Apache 2.0",
@@ -39,7 +39,7 @@ class GalleryController extends Controller
     //        ->whereNotNull('picture')->orderBy('created_at', 'desc')->paginate(30)
     //    );
     //    return view('gallery.index')->with($data);
-    $response = Http::get('http://127.0.0.1:8000/api/gallery');
+        $response = Http::get('http://127.0.0.1:8000/api/gallery');        
         $objectResponse = $response->body();
         $data = json_decode($objectResponse, true);
         return view('gallery.index')->with([
@@ -89,13 +89,13 @@ class GalleryController extends Controller
                 'description' => $request->description,
             ]);
             
-            // ini dijalankan ketika responsenya itu success, maka dia akan mereturn success berhasil menambahkan data
+            // dijalankan ketika response success, maka akan mereturn success berhasil menambahkan data
             if ($response->successful()) {
                 return redirect()->route('gallery.index')->with('Success', 'Berhasil menambahkan data baru');
             }
 
         } catch (\Throwable $th) {
-        dd($th);
+            dd($th);
         }
 
        // dd($request->input());
@@ -192,11 +192,24 @@ class GalleryController extends Controller
         if (Storage::exists($path)) {
             Storage::delete($path);
         }
-
         $gallery->delete();
 
         return redirect()->route('gallery.index')->with(['message' => 'Gambar berhasil dihapus!']);
     }
+
+    /**
+     * @OA\Get(
+     *      path="/api/gallery",
+     *      tags={"Get Gallery"},
+     *      summary="Menampilkan data Gallery",
+     *      description="Menampilkan data Gallery",
+     *      operationId="gallery",
+     *      @OA\Response(
+     *          response="default",
+     *          description="Success Menampilkan Data"
+     *      )
+     * )
+    */
 
     public function gallery()
     { 
@@ -212,6 +225,45 @@ class GalleryController extends Controller
             ],404);
         }
     }
+
+    /**
+     * @OA\Post(
+     *     path="/api/gallery-store",
+     *     summary="Add Gallery",
+     *     tags={"Store Gallery"},
+     *     @OA\RequestBody(
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(
+     *                     property="title",
+     *                     type="string",
+     *                     description="Judul gallery",
+     *                 ),
+     *                 @OA\Property(
+     *                     property="description",
+     *                     type="string",
+     *                     description="Deskripsi Gallery",
+     *                 ),
+     *                 @OA\Property(
+     *                     property="picture",
+     *                     type="string",
+     *                     format="binary",
+     *                     description="Image file Gallery",
+     *                 ),
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Success menambahkan data",
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Error",
+     *     )
+     * )
+     */
 
     public function addGallery(Request $request){
         try{
